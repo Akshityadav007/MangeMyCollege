@@ -10,16 +10,14 @@ class PhoneLogin extends StatefulWidget {
 }
 
 class _PhoneLoginState extends State<PhoneLogin> {
-  Database database = new Database();
+  Database database = Database();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String phoneNumber;
   var myPhoneController = TextEditingController();
-  var otpControllar = TextEditingController();
+  var otpController = TextEditingController();
   var status;
   String verifiedSmsCode;
   String verId;
-
-  // number login
 
   showOtpDialog(BuildContext context) {
     return showDialog(
@@ -30,7 +28,8 @@ class _PhoneLoginState extends State<PhoneLogin> {
                 borderRadius: BorderRadius.circular(15.0)),
             title: Text("Verify OTP"),
             content: TextField(
-              controller: otpControllar,
+              controller: otpController,
+              autofocus: true,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
@@ -79,7 +78,7 @@ class _PhoneLoginState extends State<PhoneLogin> {
     final PhoneCodeSent onCodeSent =
         (String verificationId, [int forceResendingToken]) {
       setState(() {
-        this.verId = verificationId;
+        verId = verificationId;
       });
       print("Code Sent");
       showOtpDialog(context);
@@ -93,7 +92,7 @@ class _PhoneLoginState extends State<PhoneLogin> {
           prefs.setBool("isLoggedIn", true);
           prefs.setString("phoneNumber", myPhoneController.text);
           print('this is no. : ${myPhoneController.text}');
-          otpControllar.clear();
+          otpController.clear();
           myPhoneController.clear();
           Navigator.pushReplacement(
             context,
@@ -115,7 +114,7 @@ class _PhoneLoginState extends State<PhoneLogin> {
   void _onFormSubmitted(BuildContext context) async {
     print('Verify the Phone');
     AuthCredential _authCredential = PhoneAuthProvider.getCredential(
-        verificationId: verId, smsCode: otpControllar.text);
+        verificationId: verId, smsCode: otpController.text);
     _auth.signInWithCredential(_authCredential).then((AuthResult value) async {
       if (value.user != null) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -170,7 +169,7 @@ class _PhoneLoginState extends State<PhoneLogin> {
                       child: TextField(
                         controller: myPhoneController,
                         onChanged: (value) {
-                          this.phoneNumber = value;
+                          phoneNumber = value;
                         },
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(

@@ -3,13 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:mmc/services/Helper.dart';
 import 'package:mmc/services/database.dart';
-import 'package:uuid/uuid.dart';
 import '../fileViewer.dart';
 import 'package:path/path.dart' as path;
-
 
 class Books extends StatefulWidget {
   @override
@@ -17,12 +14,12 @@ class Books extends StatefulWidget {
 }
 
 class _BooksState extends State<Books> {
-
+  final GlobalKey<ScaffoldState> _scaffoldkey = new GlobalKey<ScaffoldState>();
   File book;
   String downloadUrl;
-  bool uploading = false,longPressed =  false;
+  bool uploading = false, longPressed = false;
   Database database = new Database();
-  String phoneNumber = Helper.mynumber,fileName;
+  String phoneNumber = Helper.mynumber, fileName;
 
   Widget fileList() {
     return StreamBuilder(
@@ -37,6 +34,7 @@ class _BooksState extends State<Books> {
               return ListView.builder(
                 itemCount: snapshot.data.documents.length,
                 shrinkWrap: true,
+                physics: AlwaysScrollableScrollPhysics(),
                 itemBuilder: (context, index) {
                   return fileTile(
                       snapshot.data.documents[index].data['fileDownloadLink'],
@@ -48,55 +46,57 @@ class _BooksState extends State<Books> {
         });
   }
 
-
   Widget fileTile(String fileDownloadLink, String fileName) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: longPressed
+      margin: EdgeInsets.symmetric(horizontal: 5),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            child: longPressed
+                ? IconButton(
+                    icon: Icon(Icons.check_circle),
+                    color: Colors.greenAccent,
+                    onPressed: () {
+                      setState(() {
+                        longPressed = false;
+                      });
+                    },
+                  )
+                : Icon(Icons.insert_drive_file),
+          ),
+          title: Text(fileName),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FileView(fileURL: fileDownloadLink),
+              ),
+            );
+          },
+          onLongPress: () {
+            setState(() {
+              longPressed = true;
+            });
+          },
+          trailing: longPressed
               ? IconButton(
-            icon: Icon(Icons.check_circle),
-            color: Colors.greenAccent,
-            onPressed: () {
-              setState(() {
-                longPressed = false;
-              });
-            },
-          )
-              : Icon(Icons.insert_drive_file),
+                  icon: Icon(Icons.delete),
+                  onPressed: () {
+                    database.deleteData(
+                        fileDownloadLink, phoneNumber, 'book', fileName);
+                  })
+              : Icon(Icons.check_circle_outline, color: Colors.green),
         ),
-        title: Text(fileName),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FileView(fileURL: fileDownloadLink),
-            ),
-          );
-        },
-        onLongPress: () {
-          setState(() {
-            longPressed = true;
-          });
-        },
-        trailing: longPressed
-            ? IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: () {
-              database.deleteData(fileDownloadLink,phoneNumber, 'book', fileName);
-            })
-            : Icon(Icons.check_circle_outline, color: Colors.green),
       ),
     );
   }
 
-
   Future getFile() async {
     File files = await FilePicker.getFile().catchError((e) {
-      Fluttertoast.showToast(msg: 'Oops!Something went wrong.');
+      print(e);
+      _showErrorSnack();
     });
-    if (await files.exists()){
+    if (await files.exists()) {
       fileName = path.basename(files.path);
       print(path.basename(files.path));
     }
@@ -124,6 +124,7 @@ class _BooksState extends State<Books> {
       "fileName": fileName,
     };
     database.addData(_phoneNumber, fileName, downloadLinkMap, 'book');
+    _showSnack();
     setState(() {
       uploading = false;
       book = null;
@@ -132,9 +133,24 @@ class _BooksState extends State<Books> {
     });
   }
 
+  _showSnack() {
+    final snackBar = new SnackBar(
+      content: Text('Book Added Successfully!'),
+      duration: Duration(seconds: 2),
+    );
+    _scaffoldkey.currentState.showSnackBar(snackBar);
+  }
+
+  _showErrorSnack() {
+    final snackError =
+        new SnackBar(content: Text('Oops! Something went wrong'));
+    _scaffoldkey.currentState.showSnackBar(snackError);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldkey,
       appBar: AppBar(
         title: Text('Books'),
         centerTitle: true,
@@ -143,8 +159,8 @@ class _BooksState extends State<Books> {
           onPressed: () {
             longPressed
                 ? setState(() {
-              longPressed = false;
-            })
+                    longPressed = false;
+                  })
                 : Navigator.pop(context);
           },
         ),
@@ -168,7 +184,7 @@ class _BooksState extends State<Books> {
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
-        padding: EdgeInsets.only(top: 30),
+        padding: EdgeInsets.only(top: 20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,18 +192,18 @@ class _BooksState extends State<Books> {
             Center(
               child: book == null
                   ? RaisedButton(
-                onPressed: getFile,
-                child: Text('Select File'),
-              )
+                      onPressed: getFile,
+                      child: Text('Select File'),
+                    )
                   : RaisedButton(
-                child: Text('Upload File'),
-                onPressed: ()  {
-                  setState(() {
-                    uploading = true;
-                  });
-                  uploadFile(book);
-                },
-              ),
+                      child: Text('Upload File'),
+                      onPressed: () {
+                        setState(() {
+                          uploading = true;
+                        });
+                        uploadFile(book);
+                      },
+                    ),
             ),
             Container(
               padding: EdgeInsets.only(top: 10),
@@ -197,8 +213,8 @@ class _BooksState extends State<Books> {
                   uploading
                       ? LinearProgressIndicator()
                       : SizedBox(
-                    height: 10,
-                  ),
+                          height: 10,
+                        ),
                   SingleChildScrollView(child: fileList()),
                 ],
               ),

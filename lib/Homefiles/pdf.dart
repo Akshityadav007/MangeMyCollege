@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:mmc/fileViewer.dart';
 import 'package:mmc/services/Helper.dart';
@@ -15,8 +14,9 @@ class Pdf extends StatefulWidget {
 }
 
 class _PdfState extends State<Pdf> {
+  final GlobalKey<ScaffoldState> _scaffoldkey = new GlobalKey<ScaffoldState>();
   File pdf;
-  String downloadUrl,fileName;
+  String downloadUrl, fileName;
   bool uploading = false, longPressed = false;
   Database database = new Database();
   String phoneNumber = Helper.mynumber;
@@ -34,6 +34,7 @@ class _PdfState extends State<Pdf> {
               return ListView.builder(
                 itemCount: snapshot.data.documents.length,
                 shrinkWrap: true,
+                physics: AlwaysScrollableScrollPhysics(),
                 itemBuilder: (context, index) {
                   return fileTile(
                       snapshot.data.documents[index].data['fileDownloadLink'],
@@ -47,51 +48,55 @@ class _PdfState extends State<Pdf> {
 
   Widget fileTile(String fileDownloadLink, String fileName) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: longPressed
+      margin: EdgeInsets.symmetric(horizontal: 5),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            child: longPressed
+                ? IconButton(
+                    icon: Icon(Icons.check_circle),
+                    color: Colors.greenAccent,
+                    onPressed: () {
+                      setState(() {
+                        longPressed = false;
+                      });
+                    },
+                  )
+                : Icon(Icons.insert_drive_file),
+          ),
+          title: Text(fileName),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FileView(fileURL: fileDownloadLink),
+              ),
+            );
+          },
+          onLongPress: () {
+            setState(() {
+              longPressed = true;
+            });
+          },
+          trailing: longPressed
               ? IconButton(
-                  icon: Icon(Icons.check_circle),
-                  color: Colors.greenAccent,
+                  icon: Icon(Icons.delete),
                   onPressed: () {
-                    setState(() {
-                      longPressed = false;
-                    });
-                  },
-                )
-              : Icon(Icons.insert_drive_file),
+                    database.deleteData(
+                        fileDownloadLink, phoneNumber, 'pdf', fileName);
+                  })
+              : Icon(Icons.check_circle_outline, color: Colors.green),
         ),
-        title: Text(fileName),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FileView(fileURL: fileDownloadLink),
-            ),
-          );
-        },
-        onLongPress: () {
-          setState(() {
-            longPressed = true;
-          });
-        },
-        trailing: longPressed
-            ? IconButton(
-                icon: Icon(Icons.delete),
-                onPressed: () {
-                  database.deleteData(fileDownloadLink,phoneNumber, 'pdf', fileName);
-                })
-            : Icon(Icons.check_circle_outline, color: Colors.green),
       ),
     );
   }
 
   Future getFile() async {
     File files = await FilePicker.getFile().catchError((e) {
-      Fluttertoast.showToast(msg: 'Oops!Something went wrong.');
+      print(e);
+      _showErrorSnack();
     });
-    if (await files.exists()){
+    if (await files.exists()) {
       fileName = path.basename(files.path);
       print(path.basename(files.path));
     }
@@ -117,7 +122,7 @@ class _PdfState extends State<Pdf> {
     };
 
     database.addData(_phoneNumber, fileName, downloadLinkMap, 'pdf');
-
+    _showSnack();
     setState(() {
       uploading = false;
       pdf = null;
@@ -126,9 +131,24 @@ class _PdfState extends State<Pdf> {
     });
   }
 
+  _showSnack() {
+    final snackBar = new SnackBar(
+      content: Text('Pdf Added Successfully!'),
+      duration: Duration(seconds: 2),
+    );
+    _scaffoldkey.currentState.showSnackBar(snackBar);
+  }
+
+  _showErrorSnack() {
+    final snackError =
+        new SnackBar(content: Text('Oops! Something went wrong'));
+    _scaffoldkey.currentState.showSnackBar(snackError);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldkey,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
@@ -165,7 +185,7 @@ class _PdfState extends State<Pdf> {
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
-        padding: EdgeInsets.only(top: 30),
+        padding: EdgeInsets.only(top: 20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,

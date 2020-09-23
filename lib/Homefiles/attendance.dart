@@ -7,17 +7,33 @@ class Attendance extends StatefulWidget {
 }
 
 class _AttendanceState extends State<Attendance> {
-   int _attendedLectures = 0;
-  int _totalLectures = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+  int _attendedLectures;
+  int _totalLectures;
 
-  double percentage(int attendedLectures, int totalLectures){
-    return ((_attendedLectures) / (_totalLectures) * 100);
+  double percentage(int _attendLectures, int _ttlLectures) {
+    double percent = (_attendLectures) / (_ttlLectures) * 100;
+    double attendance = double.parse((percent).toStringAsFixed(2));
+    return (attendance);
+  }
+
+  int lecturesToAttend(int _lecturesAttended, int _allLectures) {
+    int lectures = 0;
+    double z = 0.75 * _allLectures;
+    int l = (z.ceil()).toInt();
+    if (_lecturesAttended < l) {
+      lectures = (((z - _lecturesAttended) / 0.25).ceil()).toInt();
+    } else {
+      lectures = 0;
+    }
+    return lectures;
   }
 
   @override
   Widget build(BuildContext context) {
     final data = MediaQuery.of(context).size;
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         leading: IconButton(
             icon: Icon(Icons.arrow_back),
@@ -33,9 +49,13 @@ class _AttendanceState extends State<Attendance> {
                 child: Image.asset(
                   'assets/images/attendance.png',
                 ),
-              ),backgroundColor: Color(0xffDAF7A6),
+              ),
+              backgroundColor: Color(0xffDAF7A6),
             ),
-          ),SizedBox(width: 10,)
+          ),
+          SizedBox(
+            width: 10,
+          )
         ],
       ),
       body: Container(
@@ -160,11 +180,11 @@ class _AttendanceState extends State<Attendance> {
               flex: 1,
               child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 15),
-                child: (percentage(_attendedLectures, _totalLectures) >= 75 )
+                child: (percentage(_attendedLectures, _totalLectures) >= 75)
                     ? Text(
                         'Congratulations! Your attendance is ${percentage(_attendedLectures, _totalLectures)} %')
                     : Text(
-                        'Your attendance is ${percentage(_attendedLectures, _totalLectures)} % and you need to attend ${(75 * _totalLectures / 100) - _attendedLectures} lectures more.'),
+                        'Your attendance is ${percentage(_attendedLectures, _totalLectures)} % and you need to attend ${lecturesToAttend(_attendedLectures, _totalLectures)} lectures more.'),
               ),
             ),
             SizedBox(

@@ -4,10 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:mmc/services/Helper.dart';
 import 'package:mmc/services/database.dart';
-import 'package:uuid/uuid.dart';
 import '../fileViewer.dart';
 import 'package:path/path.dart' as path;
 
@@ -17,12 +15,12 @@ class Notes extends StatefulWidget {
 }
 
 class _NotesState extends State<Notes> {
-
+  final GlobalKey<ScaffoldState> _scaffoldkey = new GlobalKey<ScaffoldState>();
   File notes;
   String downloadUrl;
-  bool uploading = false,longPressed = false;
+  bool uploading = false, longPressed = false;
   Database database = new Database();
-  String phoneNumber = Helper.mynumber,fileName;
+  String phoneNumber = Helper.mynumber, fileName;
 
   Widget fileList() {
     return StreamBuilder(
@@ -37,6 +35,7 @@ class _NotesState extends State<Notes> {
               return ListView.builder(
                 itemCount: snapshot.data.documents.length,
                 shrinkWrap: true,
+                physics: AlwaysScrollableScrollPhysics(),
                 itemBuilder: (context, index) {
                   return fileTile(
                       snapshot.data.documents[index].data['fileDownloadLink'],
@@ -50,53 +49,55 @@ class _NotesState extends State<Notes> {
 
   Widget fileTile(String fileDownloadLink, String fileName) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: longPressed
+      margin: EdgeInsets.symmetric(horizontal: 5),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            child: longPressed
+                ? IconButton(
+                    icon: Icon(Icons.check_circle),
+                    color: Colors.greenAccent,
+                    onPressed: () {
+                      setState(() {
+                        longPressed = false;
+                      });
+                    },
+                  )
+                : Icon(Icons.insert_drive_file),
+          ),
+          title: Text(fileName),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FileView(fileURL: fileDownloadLink),
+              ),
+            );
+          },
+          onLongPress: () {
+            setState(() {
+              longPressed = true;
+            });
+          },
+          trailing: longPressed
               ? IconButton(
-            icon: Icon(Icons.check_circle),
-            color: Colors.greenAccent,
-            onPressed: () {
-              setState(() {
-                longPressed = false;
-              });
-            },
-          )
-              : Icon(Icons.insert_drive_file),
+                  icon: Icon(Icons.delete),
+                  onPressed: () {
+                    database.deleteData(
+                        fileDownloadLink, phoneNumber, 'notes', fileName);
+                  })
+              : Icon(Icons.check_circle_outline, color: Colors.green),
         ),
-        title: Text(fileName),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FileView(fileURL: fileDownloadLink),
-            ),
-          );
-        },
-        onLongPress: () {
-          setState(() {
-            longPressed = true;
-          });
-        },
-        trailing: longPressed
-            ? IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: () {
-              database.deleteData(fileDownloadLink,phoneNumber, 'notes', fileName);
-            })
-            : Icon(Icons.check_circle_outline, color: Colors.green),
       ),
     );
   }
 
-
-
   Future getFile() async {
     File files = await FilePicker.getFile().catchError((e) {
-      Fluttertoast.showToast(msg: 'Oops!Something went wrong.'); //TODO: check toast
+      print(e);
+      _showErrorSnack();
     });
-    if (await files.exists()){
+    if (await files.exists()) {
       fileName = path.basename(files.path);
       print(path.basename(files.path));
     }
@@ -123,6 +124,7 @@ class _NotesState extends State<Notes> {
     };
 
     database.addData(_phoneNumber, fileName, downloadLinkMap, 'notes');
+    _showSnack();
     setState(() {
       uploading = false;
       notes = null;
@@ -131,20 +133,34 @@ class _NotesState extends State<Notes> {
     });
   }
 
+  _showSnack() {
+    final snackBar = new SnackBar(
+      content: Text('Notes Added Successfully!'),
+      duration: Duration(seconds: 2),
+    );
+    _scaffoldkey.currentState.showSnackBar(snackBar);
+  }
+
+  _showErrorSnack() {
+    final snackError =
+        new SnackBar(content: Text('Oops! Something went wrong'));
+    _scaffoldkey.currentState.showSnackBar(snackError);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldkey,
       appBar: AppBar(
         leading: IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () {
-              longPressed
-                  ? setState(() {
-                longPressed = false;
-              })
-                  : Navigator.pop(context);
-            },
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            longPressed
+                ? setState(() {
+                    longPressed = false;
+                  })
+                : Navigator.pop(context);
+          },
         ),
         centerTitle: true,
         title: Text('Notes'),
@@ -168,7 +184,7 @@ class _NotesState extends State<Notes> {
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
-        padding: EdgeInsets.only(top: 30),
+        padding: EdgeInsets.only(top: 20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,18 +192,18 @@ class _NotesState extends State<Notes> {
             Center(
               child: notes == null
                   ? RaisedButton(
-                onPressed: getFile,
-                child: Text('Select File'),
-              )
+                      onPressed: getFile,
+                      child: Text('Select File'),
+                    )
                   : RaisedButton(
-                child: Text('Upload File'),
-                onPressed: () {
-                  setState(() {
-                    uploading = true;
-                  });
-                  uploadFile(notes);
-                },
-              ),
+                      child: Text('Upload File'),
+                      onPressed: () {
+                        setState(() {
+                          uploading = true;
+                        });
+                        uploadFile(notes);
+                      },
+                    ),
             ),
             Container(
               padding: EdgeInsets.only(top: 10),
@@ -197,8 +213,8 @@ class _NotesState extends State<Notes> {
                   uploading
                       ? LinearProgressIndicator()
                       : SizedBox(
-                    height: 10,
-                  ),
+                          height: 10,
+                        ),
                   SingleChildScrollView(child: fileList()),
                 ],
               ),
